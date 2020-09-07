@@ -1,47 +1,28 @@
-/* Hierarchial argument parsing help output
-   Copyright (C) 1995-2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
-   This file is part of the GNU C Library.
-   Written by Miles Bader <miles at gnu.ai.mit.edu>.
+ /* Hierarchial argument parsing help output
+    Copyright (C) 1995-2003, 2004, 2005, 2006, 2007
+    Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+    Written by Miles Bader <miles at gnu.ai.mit.edu>.
 
-   The GNU C Library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Lesser General Public
-   License as published by the Free Software Foundation; either
-   version 2.1 of the License, or (at your option) any later version.
+    The GNU C Library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-   The GNU C Library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Lesser General Public License for more details.
+    The GNU C Library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-   You should have received a copy of the GNU Lesser General Public
-   License along with the GNU C Library; see the file COPYING.LIB.  If
-   not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with the GNU C Library; see the file COPYING.LIB.  If
+    not, see <http://www.gnu.org/licenses/>.
 
-   Modified for uClibc by: Salvatore Cro <salvatore.cro at st.com>
-*/
+    Modified for uClibc by: Salvatore Cro <salvatore.cro at st.com>
+ */
 
 #ifndef _GNU_SOURCE
-# define _GNU_SOURCE   1
-#endif
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-/* AIX requires this to be the first thing in the file.  */
-#ifndef __GNUC__
-# if HAVE_ALLOCA_H || defined _LIBC
-#  include <alloca.h>
-# else
-#  ifdef _AIX
-#pragma alloca
-#  else
-#   ifndef alloca /* predefined by HP cc +Olibcalls */
-char *alloca ();
-#   endif
-#  endif
-# endif
+#define _GNU_SOURCE
 #endif
 
 #include <stddef.h>
@@ -51,35 +32,36 @@ char *alloca ();
 #include <stdarg.h>
 #include <ctype.h>
 #include <limits.h>
-#ifdef _LIBC
-# include <wchar.h>
-#endif
-
 #include <features.h>
-#ifndef _
-# define dgettext(domain, msgid) (msgid)
-#endif
-
-#ifndef _LIBC
-# if HAVE_STRERROR_R
-#  if !HAVE_DECL_STRERROR_R
-char *strerror_r (int errnum, char *buf, size_t buflen);
-#  endif
-# else
-#  if !HAVE_DECL_STRERROR
-char *strerror (int errnum);
-#  endif
-# endif
-#endif
-
+#include <libintl.h>
+#include <locale.h>
+#include <alloca.h>
 #include <argp.h>
 #include "argp-fmtstream.h"
+#include "internal.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef SIZE_MAX
-# define SIZE_MAX ((size_t) -1)
-#endif
+/* Return the input field for ARGP in the parser corresponding to STATE; used
+   by the help routines.  */
+void *
+argp_input (const struct argp *argp, const struct argp_state *state)
+{
+  if (state)
+    {
+      struct group *group;
+      struct parser *parser = state->pstate;
+
+      for (group = parser->groups; group < parser->egroup; group++)
+       if (group->argp == argp)
+         return group->input;
+    }
+
+  return 0;
+}
+
+#undef dgettext
+#define dgettext(domain, msgid)(msgid ? dcgettext(domain, msgid, LC_MESSAGES) : NULL)
 
 /* User-selectable (using an environment variable) formatting parameters.
 
@@ -258,10 +240,10 @@ fill_in_uparams (const struct argp_state *state)
 #define odoc(opt) ((opt)->flags & OPTION_DOC)
 
 /* Returns true if OPT is the end-of-list marker for a list of options.  */
-#define oend(opt) __option_is_end (opt)
+#define oend(opt) _option_is_end (opt)
 
 /* Returns true if OPT has a short option.  */
-#define oshort(opt) __option_is_short (opt)
+#define oshort(opt) _option_is_short (opt)
 
 /*
    The help format for a particular option is like:
@@ -908,9 +890,9 @@ hol_append (struct hol *hol, struct hol *more)
 static void
 indent_to (argp_fmtstream_t stream, unsigned col)
 {
-  int needed = col - __argp_fmtstream_point (stream);
+  int needed = col - argp_fmtstream_point (stream);
   while (needed-- > 0)
-    __argp_fmtstream_putc (stream, ' ');
+    argp_fmtstream_putc (stream, ' ');
 }
 
 /* Output to STREAM either a space, or a newline if there isn't room for at
@@ -918,11 +900,11 @@ indent_to (argp_fmtstream_t stream, unsigned col)
 static void
 space (argp_fmtstream_t stream, size_t ensure)
 {
-  if (__argp_fmtstream_point (stream) + ensure
-      >= __argp_fmtstream_rmargin (stream))
-    __argp_fmtstream_putc (stream, '\n');
+  if (argp_fmtstream_point (stream) + ensure
+      >= argp_fmtstream_rmargin (stream))
+    argp_fmtstream_putc (stream, '\n');
   else
-    __argp_fmtstream_putc (stream, ' ');
+    argp_fmtstream_putc (stream, ' ');
 }
 
 /* If the option REAL has an argument, we print it in using the printf
@@ -935,10 +917,10 @@ arg (const struct argp_option *real, const char *req_fmt, const char *opt_fmt,
   if (real->arg)
     {
       if (real->flags & OPTION_ARG_OPTIONAL)
-       __argp_fmtstream_printf (stream, opt_fmt,
+       argp_fmtstream_printf (stream, opt_fmt,
                                 dgettext (domain, real->arg));
       else
-       __argp_fmtstream_printf (stream, req_fmt,
+       argp_fmtstream_printf (stream, req_fmt,
                                 dgettext (domain, real->arg));
     }
 }
@@ -984,7 +966,7 @@ filter_doc (const char *doc, int key, const struct argp *argp,
   if (argp && argp->help_filter)
     /* We must apply a user filter to this output.  */
     {
-      void *input = __argp_input (argp, state);
+      void *input = argp_input (argp, state);
       return (*argp->help_filter) (key, doc, input);
     }
   else
@@ -1010,13 +992,13 @@ print_header (const char *str, const struct argp *argp,
        {
          if (pest->hhstate->prev_entry)
            /* Precede with a blank line.  */
-           __argp_fmtstream_putc (pest->stream, '\n');
+           argp_fmtstream_putc (pest->stream, '\n');
          indent_to (pest->stream, uparams.header_col);
-         __argp_fmtstream_set_lmargin (pest->stream, uparams.header_col);
-         __argp_fmtstream_set_wmargin (pest->stream, uparams.header_col);
-         __argp_fmtstream_puts (pest->stream, fstr);
-         __argp_fmtstream_set_lmargin (pest->stream, 0);
-         __argp_fmtstream_putc (pest->stream, '\n');
+         argp_fmtstream_set_lmargin (pest->stream, uparams.header_col);
+         argp_fmtstream_set_wmargin (pest->stream, uparams.header_col);
+         argp_fmtstream_puts (pest->stream, fstr);
+         argp_fmtstream_set_lmargin (pest->stream, 0);
+         argp_fmtstream_putc (pest->stream, '\n');
        }
 
       pest->hhstate->sep_groups = 1; /* Separate subsequent groups. */
@@ -1039,7 +1021,7 @@ comma (unsigned col, struct pentry_state *pest)
       const struct hol_cluster *cl = pest->entry->cluster;
 
       if (pest->hhstate->sep_groups && pe && pest->entry->group != pe->group)
-       __argp_fmtstream_putc (pest->stream, '\n');
+       argp_fmtstream_putc (pest->stream, '\n');
 
       if (cl && cl->header && *cl->header
          && (!pe
@@ -1050,15 +1032,15 @@ comma (unsigned col, struct pentry_state *pest)
           (in which case we had just popped into a sub-cluster for a bit).
           If so, then print the cluster's header line.  */
        {
-         int old_wm = __argp_fmtstream_wmargin (pest->stream);
+         int old_wm = argp_fmtstream_wmargin (pest->stream);
          print_header (cl->header, cl->argp, pest);
-         __argp_fmtstream_set_wmargin (pest->stream, old_wm);
+         argp_fmtstream_set_wmargin (pest->stream, old_wm);
        }
 
       pest->first = 0;
     }
   else
-    __argp_fmtstream_puts (pest->stream, ", ");
+    argp_fmtstream_puts (pest->stream, ", ");
 
   indent_to (pest->stream, col);
 }
@@ -1073,8 +1055,8 @@ hol_entry_help (struct hol_entry *entry, const struct argp_state *state,
   char *so = entry->short_options;
   int have_long_opt = 0;       /* We have any long options.  */
   /* Saved margins.  */
-  int old_lm = __argp_fmtstream_set_lmargin (stream, 0);
-  int old_wm = __argp_fmtstream_wmargin (stream);
+  int old_lm = argp_fmtstream_set_lmargin (stream, 0);
+  int old_wm = argp_fmtstream_wmargin (stream);
   /* PEST is a state block holding some of our variables that we'd like to
      share with helper functions.  */
   struct pentry_state pest = { entry, stream, hhstate, 1, state };
@@ -1088,7 +1070,7 @@ hol_entry_help (struct hol_entry *entry, const struct argp_state *state,
        }
 
   /* First emit short options.  */
-  __argp_fmtstream_set_wmargin (stream, uparams.short_opt_col); /* For truly bizarre cases. */
+  argp_fmtstream_set_wmargin (stream, uparams.short_opt_col); /* For truly bizarre cases. */
   for (opt = real, num = entry->num; num > 0; opt++, num--)
     if (oshort (opt) && opt->key == *so)
       /* OPT has a valid (non shadowed) short option.  */
@@ -1096,8 +1078,8 @@ hol_entry_help (struct hol_entry *entry, const struct argp_state *state,
        if (ovisible (opt))
          {
            comma (uparams.short_opt_col, &pest);
-           __argp_fmtstream_putc (stream, '-');
-           __argp_fmtstream_putc (stream, *so);
+           argp_fmtstream_putc (stream, '-');
+           argp_fmtstream_putc (stream, *so);
            if (!have_long_opt || uparams.dup_args)
              arg (real, " %s", "[%s]",
                   state == NULL ? NULL : state->root_argp->argp_domain,
@@ -1112,7 +1094,7 @@ hol_entry_help (struct hol_entry *entry, const struct argp_state *state,
   if (odoc (real))
     /* A `documentation' option.  */
     {
-      __argp_fmtstream_set_wmargin (stream, uparams.doc_opt_col);
+      argp_fmtstream_set_wmargin (stream, uparams.doc_opt_col);
       for (opt = real, num = entry->num; num > 0; opt++, num--)
        if (opt->name && ovisible (opt))
          {
@@ -1120,7 +1102,7 @@ hol_entry_help (struct hol_entry *entry, const struct argp_state *state,
            /* Calling gettext here isn't quite right, since sorting will
               have been done on the original; but documentation options
               should be pretty rare anyway...  */
-           __argp_fmtstream_puts (stream,
+           argp_fmtstream_puts (stream,
                                   dgettext (state == NULL ? NULL
                                             : state->root_argp->argp_domain,
                                             opt->name));
@@ -1129,19 +1111,19 @@ hol_entry_help (struct hol_entry *entry, const struct argp_state *state,
   else
     /* A real long option.  */
     {
-      __argp_fmtstream_set_wmargin (stream, uparams.long_opt_col);
+      argp_fmtstream_set_wmargin (stream, uparams.long_opt_col);
       for (opt = real, num = entry->num; num > 0; opt++, num--)
        if (opt->name && ovisible (opt))
          {
            comma (uparams.long_opt_col, &pest);
-           __argp_fmtstream_printf (stream, "--%s", opt->name);
+           argp_fmtstream_printf (stream, "--%s", opt->name);
            arg (real, "=%s", "[=%s]",
                 state == NULL ? NULL : state->root_argp->argp_domain, stream);
          }
     }
 
   /* Next, documentation strings.  */
-  __argp_fmtstream_set_lmargin (stream, 0);
+  argp_fmtstream_set_lmargin (stream, 0);
 
   if (pest.first)
     {
@@ -1161,33 +1143,33 @@ hol_entry_help (struct hol_entry *entry, const struct argp_state *state,
       const char *fstr = filter_doc (tstr, real->key, entry->argp, state);
       if (fstr && *fstr)
        {
-         unsigned int col = __argp_fmtstream_point (stream);
+         unsigned int col = argp_fmtstream_point (stream);
 
-         __argp_fmtstream_set_lmargin (stream, uparams.opt_doc_col);
-         __argp_fmtstream_set_wmargin (stream, uparams.opt_doc_col);
+         argp_fmtstream_set_lmargin (stream, uparams.opt_doc_col);
+         argp_fmtstream_set_wmargin (stream, uparams.opt_doc_col);
 
          if (col > (unsigned int) (uparams.opt_doc_col + 3))
-           __argp_fmtstream_putc (stream, '\n');
+           argp_fmtstream_putc (stream, '\n');
          else if (col >= (unsigned int) uparams.opt_doc_col)
-           __argp_fmtstream_puts (stream, "   ");
+           argp_fmtstream_puts (stream, "   ");
          else
            indent_to (stream, uparams.opt_doc_col);
 
-         __argp_fmtstream_puts (stream, fstr);
+         argp_fmtstream_puts (stream, fstr);
        }
       if (fstr && fstr != tstr)
        free ((char *) fstr);
 
       /* Reset the left margin.  */
-      __argp_fmtstream_set_lmargin (stream, 0);
-      __argp_fmtstream_putc (stream, '\n');
+      argp_fmtstream_set_lmargin (stream, 0);
+      argp_fmtstream_putc (stream, '\n');
     }
 
   hhstate->prev_entry = entry;
 
 cleanup:
-  __argp_fmtstream_set_lmargin (stream, old_lm);
-  __argp_fmtstream_set_wmargin (stream, old_wm);
+  argp_fmtstream_set_lmargin (stream, old_lm);
+  argp_fmtstream_set_wmargin (stream, old_wm);
 }
 
 /* Output a long help message about the options in HOL to STREAM.  */
@@ -1212,9 +1194,9 @@ optional for any corresponding short options.");
                                     state ? state->root_argp : 0, state);
       if (fstr && *fstr)
        {
-         __argp_fmtstream_putc (stream, '\n');
-         __argp_fmtstream_puts (stream, fstr);
-         __argp_fmtstream_putc (stream, '\n');
+         argp_fmtstream_putc (stream, '\n');
+         argp_fmtstream_puts (stream, fstr);
+         argp_fmtstream_putc (stream, '\n');
        }
       if (fstr && fstr != tstr)
        free ((char *) fstr);
@@ -1256,13 +1238,13 @@ usage_argful_short_opt (const struct argp_option *opt,
       arg = dgettext (domain, arg);
 
       if (flags & OPTION_ARG_OPTIONAL)
-       __argp_fmtstream_printf (stream, " [-%c[%s]]", opt->key, arg);
+       argp_fmtstream_printf (stream, " [-%c[%s]]", opt->key, arg);
       else
        {
          /* Manually do line wrapping so that it (probably) won't
             get wrapped at the embedded space.  */
          space (stream, 6 + strlen (arg));
-         __argp_fmtstream_printf (stream, "[-%c %s]", opt->key, arg);
+         argp_fmtstream_printf (stream, "[-%c %s]", opt->key, arg);
        }
     }
 
@@ -1289,12 +1271,12 @@ usage_long_opt (const struct argp_option *opt,
        {
          arg = dgettext (domain, arg);
          if (flags & OPTION_ARG_OPTIONAL)
-           __argp_fmtstream_printf (stream, " [--%s[=%s]]", opt->name, arg);
+           argp_fmtstream_printf (stream, " [--%s[=%s]]", opt->name, arg);
          else
-           __argp_fmtstream_printf (stream, " [--%s=%s]", opt->name, arg);
+           argp_fmtstream_printf (stream, " [--%s=%s]", opt->name, arg);
        }
       else
-       __argp_fmtstream_printf (stream, " [--%s]", opt->name);
+       argp_fmtstream_printf (stream, " [--%s]", opt->name);
     }
 
   return 0;
@@ -1320,7 +1302,7 @@ hol_usage (struct hol *hol, argp_fmtstream_t stream)
       if (snao_end > short_no_arg_opts)
        {
          *snao_end++ = 0;
-         __argp_fmtstream_printf (stream, " [-%s]", short_no_arg_opts);
+         argp_fmtstream_printf (stream, " [-%s]", short_no_arg_opts);
        }
 
       /* Now a list of short options *with* arguments.  */
@@ -1414,7 +1396,7 @@ argp_args_usage (const struct argp *argp, const struct argp_state *state,
         any embedded spaces.  */
       space (stream, 1 + nl - cp);
 
-      __argp_fmtstream_write (stream, cp, nl - cp);
+      argp_fmtstream_write (stream, cp, nl - cp);
     }
   if (fdoc && fdoc != tdoc)
     free ((char *)fdoc);       /* Free user's modified doc string.  */
@@ -1475,7 +1457,7 @@ argp_doc (const struct argp *argp, const struct argp_state *state,
       if (inp_text_limit)
        /* Copy INP_TEXT so that it's nul-terminated.  */
        inp_text = strndup (inp_text, inp_text_limit);
-      input = __argp_input (argp, state);
+      input = argp_input (argp, state);
       text =
        (*argp->help_filter) (post
                              ? ARGP_KEY_HELP_POST_DOC
@@ -1488,15 +1470,15 @@ argp_doc (const struct argp *argp, const struct argp_state *state,
   if (text)
     {
       if (pre_blank)
-       __argp_fmtstream_putc (stream, '\n');
+       argp_fmtstream_putc (stream, '\n');
 
       if (text == inp_text && inp_text_limit)
-       __argp_fmtstream_write (stream, inp_text, inp_text_limit);
+       argp_fmtstream_write (stream, inp_text, inp_text_limit);
       else
-       __argp_fmtstream_puts (stream, text);
+       argp_fmtstream_puts (stream, text);
 
-      if (__argp_fmtstream_point (stream) > __argp_fmtstream_lmargin (stream))
-       __argp_fmtstream_putc (stream, '\n');
+      if (argp_fmtstream_point (stream) > argp_fmtstream_lmargin (stream))
+       argp_fmtstream_putc (stream, '\n');
 
       anything = 1;
     }
@@ -1513,12 +1495,12 @@ argp_doc (const struct argp *argp, const struct argp_state *state,
       if (text)
        {
          if (anything || pre_blank)
-           __argp_fmtstream_putc (stream, '\n');
-         __argp_fmtstream_puts (stream, text);
+           argp_fmtstream_putc (stream, '\n');
+         argp_fmtstream_puts (stream, text);
          free ((char *) text);
-         if (__argp_fmtstream_point (stream)
-             > __argp_fmtstream_lmargin (stream))
-           __argp_fmtstream_putc (stream, '\n');
+         if (argp_fmtstream_point (stream)
+             > argp_fmtstream_lmargin (stream))
+           argp_fmtstream_putc (stream, '\n');
          anything = 1;
        }
     }
@@ -1554,7 +1536,7 @@ _help (const struct argp *argp, const struct argp_state *state, FILE *stream,
 
   fill_in_uparams (state);
 
-  fs = __argp_make_fmtstream (stream, 0, uparams.rmargin, 0);
+  fs = argp_make_fmtstream (stream, 0, uparams.rmargin, 0);
   if (! fs)
     {
 #if _LIBC || (HAVE_FLOCKFILE && HAVE_FUNLOCKFILE)
@@ -1586,27 +1568,27 @@ _help (const struct argp *argp, const struct argp_state *state, FILE *stream,
       do
        {
          int old_lm;
-         int old_wm = __argp_fmtstream_set_wmargin (fs, uparams.usage_indent);
+         int old_wm = argp_fmtstream_set_wmargin (fs, uparams.usage_indent);
          char *levels = pattern_levels;
 
          if (first_pattern)
-           __argp_fmtstream_printf (fs, "%s %s",
+           argp_fmtstream_printf (fs, "%s %s",
                                     dgettext (argp->argp_domain, "Usage:"),
                                     name);
          else
-           __argp_fmtstream_printf (fs, "%s %s",
+           argp_fmtstream_printf (fs, "%s %s",
                                     dgettext (argp->argp_domain, "  or: "),
                                     name);
 
          /* We set the lmargin as well as the wmargin, because hol_usage
             manually wraps options with newline to avoid annoying breaks.  */
-         old_lm = __argp_fmtstream_set_lmargin (fs, uparams.usage_indent);
+         old_lm = argp_fmtstream_set_lmargin (fs, uparams.usage_indent);
 
          if (flags & ARGP_HELP_SHORT_USAGE)
            /* Just show where the options go.  */
            {
              if (hol->num_entries > 0)
-               __argp_fmtstream_puts (fs, dgettext (argp->argp_domain,
+               argp_fmtstream_puts (fs, dgettext (argp->argp_domain,
                                                     " [OPTION...]"));
            }
          else
@@ -1618,10 +1600,10 @@ _help (const struct argp *argp, const struct argp_state *state, FILE *stream,
 
          more_patterns = argp_args_usage (argp, state, &levels, 1, fs);
 
-         __argp_fmtstream_set_wmargin (fs, old_wm);
-         __argp_fmtstream_set_lmargin (fs, old_lm);
+         argp_fmtstream_set_wmargin (fs, old_wm);
+         argp_fmtstream_set_lmargin (fs, old_lm);
 
-         __argp_fmtstream_putc (fs, '\n');
+         argp_fmtstream_putc (fs, '\n');
          anything = 1;
 
          first_pattern = 0;
@@ -1634,7 +1616,7 @@ _help (const struct argp *argp, const struct argp_state *state, FILE *stream,
 
   if (flags & ARGP_HELP_SEE)
     {
-      __argp_fmtstream_printf (fs, dgettext (argp->argp_domain, "\
+      argp_fmtstream_printf (fs, dgettext (argp->argp_domain, "\
 Try `%s --help' or `%s --usage' for more information.\n"),
                               name, name);
       anything = 1;
@@ -1647,7 +1629,7 @@ Try `%s --help' or `%s --usage' for more information.\n"),
       if (hol->num_entries > 0)
        {
          if (anything)
-           __argp_fmtstream_putc (fs, '\n');
+           argp_fmtstream_putc (fs, '\n');
          hol_help (hol, state, fs);
          anything = 1;
        }
@@ -1660,8 +1642,8 @@ Try `%s --help' or `%s --usage' for more information.\n"),
   if ((flags & ARGP_HELP_BUG_ADDR) && argp_program_bug_address)
     {
       if (anything)
-       __argp_fmtstream_putc (fs, '\n');
-      __argp_fmtstream_printf (fs, dgettext (argp->argp_domain,
+       argp_fmtstream_putc (fs, '\n');
+      argp_fmtstream_printf (fs, dgettext (argp->argp_domain,
                                             "Report bugs to %s.\n"),
                               argp_program_bug_address);
       anything = 1;
@@ -1674,7 +1656,7 @@ Try `%s --help' or `%s --usage' for more information.\n"),
   if (hol)
     hol_free (hol);
 
-  __argp_fmtstream_free (fs);
+  argp_fmtstream_free (fs);
 }
 
 /* Output a usage message for ARGP to STREAM.  FLAGS are from the set
@@ -1698,9 +1680,6 @@ __argp_short_program_name (void)
   /* FIXME: What now? Miles suggests that it is better to use NULL,
      but currently the value is passed on directly to fputs_unlocked,
      so that requires more changes. */
-# if __GNUC__
-#  warning No reasonable value to return
-# endif /* __GNUC__ */
   return "";
 # endif
 }

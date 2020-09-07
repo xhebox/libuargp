@@ -20,37 +20,17 @@
    Modified for uClibc by: Salvatore Cro <salvatore.cro at st.com>
 */
 
-/* This package emulates glibc `line_wrap_stream' semantics for systems that
-   don't have that.  */
-
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <ctype.h>
-
 #include "argp-fmtstream.h"
-
-#ifndef ARGP_FMTSTREAM_USE_LINEWRAP
-
-#ifndef isblank
-#define isblank(ch) ((ch)==' ' || (ch)=='\t')
-#endif
-
-#if defined _LIBC && defined USE_IN_LIBIO
-# include <wchar.h>
-# include <libio/libioP.h>
-# define __vsnprintf(s, l, f, a) _IO_vsnprintf (s, l, f, a)
-#else
-# define __vsnprintf(s, l, f, a) vsnprintf (s, l, f, a)
-#endif
 
 #define INIT_BUF_SIZE 200
 #define PRINTF_SIZE_GUESS 150
+
+static void __argp_fmtstream_update (argp_fmtstream_t fs);
 
 /* Return an argp_fmtstream that outputs to STREAM, and which prefixes lines
    written on it with LMARGIN spaces and limits them to RMARGIN columns
@@ -59,7 +39,7 @@
    Otherwise, chars beyond RMARGIN are simply dropped until a newline.
    Returns NULL if there was an error.  */
 argp_fmtstream_t
-__argp_make_fmtstream (FILE *stream,
+argp_make_fmtstream (FILE *stream,
                       size_t lmargin, size_t rmargin, ssize_t wmargin)
 {
   argp_fmtstream_t fs;
@@ -90,39 +70,23 @@ __argp_make_fmtstream (FILE *stream,
 
   return fs;
 }
-#if 0
-/* Not exported.  */
-#ifdef weak_alias
-weak_alias (__argp_make_fmtstream, argp_make_fmtstream)
-#endif
-#endif
 
 /* Flush FS to its stream, and free it (but don't close the stream).  */
 void
-__argp_fmtstream_free (argp_fmtstream_t fs)
+argp_fmtstream_free (argp_fmtstream_t fs)
 {
   __argp_fmtstream_update (fs);
   if (fs->p > fs->buf)
     {
-#ifdef USE_IN_LIBIO
-      __fxprintf (fs->stream, "%.*s", (int) (fs->p - fs->buf), fs->buf);
-#else
       fwrite_unlocked (fs->buf, 1, fs->p - fs->buf, fs->stream);
-#endif
     }
   free (fs->buf);
   free (fs);
 }
-#if 0
-/* Not exported.  */
-#ifdef weak_alias
-weak_alias (__argp_fmtstream_free, argp_fmtstream_free)
-#endif
-#endif
 
 /* Process FS's buffer so that line wrapping is done from POINT_OFFS to the
    end of its buffer.  This code is mostly from glibc stdio/linewrap.c.  */
-void
+static void
 __argp_fmtstream_update (argp_fmtstream_t fs)
 {
   char *buf, *nl;
@@ -153,11 +117,6 @@ __argp_fmtstream_update (argp_fmtstream_t fs)
              size_t i;
              for (i = 0; i < pad; i++)
                {
-#ifdef USE_IN_LIBIO
-                 if (_IO_fwide (fs->stream, 0) > 0)
-                   putwc_unlocked (L' ', fs->stream);
-                 else
-#endif
                    putc_unlocked (' ', fs->stream);
                }
            }
@@ -293,14 +252,9 @@ __argp_fmtstream_update (argp_fmtstream_t fs)
              else
                /* Output the first line so we can use the space.  */
                {
-#if defined _LIBC && defined USE_IN_LIBIO
-                 __fxprintf (fs->stream, "%.*s\n",
-                             (int) (nl - fs->buf), fs->buf);
-#else
                  if (nl > fs->buf)
                    fwrite_unlocked (fs->buf, 1, nl - fs->buf, fs->stream);
                  putc_unlocked ('\n', fs->stream);
-#endif
 
                  len += buf - fs->buf;
                  nl = buf = fs->buf;
@@ -318,11 +272,6 @@ __argp_fmtstream_update (argp_fmtstream_t fs)
              *nl++ = ' ';
          else
            for (i = 0; i < fs->wmargin; ++i)
-#ifdef USE_IN_LIBIO
-             if (_IO_fwide (fs->stream, 0) > 0)
-               putwc_unlocked (L' ', fs->stream);
-             else
-#endif
                putc_unlocked (' ', fs->stream);
 
          /* Copy the tail of the original buffer into the current buffer
@@ -351,7 +300,7 @@ __argp_fmtstream_update (argp_fmtstream_t fs)
 /* Ensure that FS has space for AMOUNT more bytes in its buffer, either by
    growing the buffer, or by flushing it.  True is returned iff we succeed. */
 int
-__argp_fmtstream_ensure (struct argp_fmtstream *fs, size_t amount)
+argp_fmtstream_ensure (struct argp_fmtstream *fs, size_t amount)
 {
   if ((size_t) (fs->end - fs->p) < amount)
     {
@@ -360,12 +309,7 @@ __argp_fmtstream_ensure (struct argp_fmtstream *fs, size_t amount)
       /* Flush FS's buffer.  */
       __argp_fmtstream_update (fs);
 
-#if defined _LIBC && defined USE_IN_LIBIO
-      __fxprintf (fs->stream, "%.*s", (int) (fs->p - fs->buf), fs->buf);
-      wrote = fs->p - fs->buf;
-#else
       wrote = fwrite_unlocked (fs->buf, 1, fs->p - fs->buf, fs->stream);
-#endif
       if (wrote == fs->p - fs->buf)
        {
          fs->p = fs->buf;
@@ -388,7 +332,7 @@ __argp_fmtstream_ensure (struct argp_fmtstream *fs, size_t amount)
 
          if (new_size < old_size || ! (new_buf = realloc (fs->buf, new_size)))
            {
-             __set_errno (ENOMEM);
+             errno = ENOMEM;
              return 0;
            }
 
@@ -402,7 +346,7 @@ __argp_fmtstream_ensure (struct argp_fmtstream *fs, size_t amount)
 }
 
 ssize_t
-__argp_fmtstream_printf (struct argp_fmtstream *fs, const char *fmt, ...)
+argp_fmtstream_printf (struct argp_fmtstream *fs, const char *fmt, ...)
 {
   int out;
   size_t avail;
@@ -412,12 +356,12 @@ __argp_fmtstream_printf (struct argp_fmtstream *fs, const char *fmt, ...)
     {
       va_list args;
 
-      if (! __argp_fmtstream_ensure (fs, size_guess))
+      if (! argp_fmtstream_ensure (fs, size_guess))
        return -1;
 
       va_start (args, fmt);
       avail = fs->end - fs->p;
-      out = __vsnprintf (fs->p, avail, fmt, args);
+      out = vsnprintf (fs->p, avail, fmt, args);
       va_end (args);
       if ((size_t) out >= avail)
        size_guess = out + 1;
@@ -428,11 +372,84 @@ __argp_fmtstream_printf (struct argp_fmtstream *fs, const char *fmt, ...)
 
   return out;
 }
-#if 0
-/* Not exported.  */
-#ifdef weak_alias
-weak_alias (__argp_fmtstream_printf, argp_fmtstream_printf)
-#endif
-#endif
 
-#endif /* !ARGP_FMTSTREAM_USE_LINEWRAP */
+size_t
+argp_fmtstream_write (argp_fmtstream_t __fs,
+                       const char *__str, size_t __len)
+{
+  if (__fs->p + __len <= __fs->end || argp_fmtstream_ensure (__fs, __len))
+    {
+      memcpy (__fs->p, __str, __len);
+      __fs->p += __len;
+      return __len;
+    }
+  else
+    return 0;
+}
+
+int
+argp_fmtstream_puts (argp_fmtstream_t __fs, const char *__str)
+{
+  size_t __len = strlen (__str);
+  if (__len)
+    {
+      size_t __wrote = argp_fmtstream_write (__fs, __str, __len);
+      return __wrote == __len ? 0 : -1;
+    }
+  else
+    return 0;
+}
+
+int
+argp_fmtstream_putc (argp_fmtstream_t __fs, int __ch)
+{
+  if (__fs->p < __fs->end || argp_fmtstream_ensure (__fs, 1))
+    return *__fs->p++ = __ch;
+  else
+    return EOF;
+}
+
+/* Set __FS's left margin to __LMARGIN and return the old value.  */
+size_t
+argp_fmtstream_set_lmargin (argp_fmtstream_t __fs, size_t __lmargin)
+{
+  size_t __old;
+  if ((size_t) (__fs->p - __fs->buf) > __fs->point_offs)
+    __argp_fmtstream_update (__fs);
+  __old = __fs->lmargin;
+  __fs->lmargin = __lmargin;
+  return __old;
+}
+
+/* Set __FS's right margin to __RMARGIN and return the old value.  */
+size_t
+argp_fmtstream_set_rmargin (argp_fmtstream_t __fs, size_t __rmargin)
+{
+  size_t __old;
+  if ((size_t) (__fs->p - __fs->buf) > __fs->point_offs)
+    __argp_fmtstream_update (__fs);
+  __old = __fs->rmargin;
+  __fs->rmargin = __rmargin;
+  return __old;
+}
+
+/* Set FS's wrap margin to __WMARGIN and return the old value.  */
+size_t
+argp_fmtstream_set_wmargin (argp_fmtstream_t __fs, size_t __wmargin)
+{
+  size_t __old;
+  if ((size_t) (__fs->p - __fs->buf) > __fs->point_offs)
+    __argp_fmtstream_update (__fs);
+  __old = __fs->wmargin;
+  __fs->wmargin = __wmargin;
+  return __old;
+}
+
+/* Return the column number of the current output point in __FS.  */
+size_t
+argp_fmtstream_point (argp_fmtstream_t __fs)
+{
+  if ((size_t) (__fs->p - __fs->buf) > __fs->point_offs)
+    __argp_fmtstream_update (__fs);
+  return __fs->point_col >= 0 ? __fs->point_col : 0;
+}
