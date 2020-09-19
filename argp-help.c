@@ -1707,6 +1707,13 @@ argp_state_help (const struct argp_state *state, FILE *stream, unsigned flags)
   }
 }
 
+/* Possibly output the standard usage message for ARGP to stderr and exit.  */
+void
+argp_usage (const struct argp_state *state)
+{
+  argp_state_help (state, stderr, ARGP_HELP_STD_USAGE);
+}
+
 /* If appropriate, print the printf string FMT and following args, preceded
    by the program name and `:', to stderr, and followed by a `Try ... --help'
    message, then exit (1).  */
