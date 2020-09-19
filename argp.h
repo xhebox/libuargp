@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <features.h>
 #include <limits.h>
 #include <errno.h>
 
@@ -387,10 +388,10 @@ struct argp_state
    routine returned a non-zero value, it is returned; otherwise 0 is
    returned.  This function may also call exit unless the ARGP_NO_HELP flag
    is set.  INPUT is a pointer to a value to be passed in to the parser.  */
-extern int argp_parse(const struct argp *restrict __argp,
-			   int __argc, char **restrict __argv,
-			   unsigned __flags, int *restrict __arg_index,
-			   void *restrict __input);
+extern int argp_parse(const struct argp *__restrict __argp,
+			   int __argc, char **__restrict __argv,
+			   unsigned __flags, int *__restrict __arg_index,
+			   void *__restrict __input);
 
 /* Global variables.  */
 
@@ -405,8 +406,8 @@ extern const char *argp_program_version;
    calls this function with a stream to print the version to and a pointer to
    the current parsing state, and then exits(unless the ARGP_NO_EXIT flag is
    used).  This variable takes precedent over ARGP_PROGRAM_VERSION.  */
-extern void(*argp_program_version_hook)(FILE *restrict __stream,
-					  struct argp_state *restrict
+extern void(*argp_program_version_hook)(FILE *__restrict __stream,
+					  struct argp_state *__restrict
 					  __state);
 
 /* If defined or set by the user program, it should point to string that is
@@ -452,9 +453,9 @@ extern int argp_err_exit_status;
 
 /* Output a usage message for ARGP to STREAM.  FLAGS are from the set
    ARGP_HELP_*.  */
-extern void argp_help(const struct argp *restrict __argp,
-		       FILE *restrict __stream,
-		       unsigned __flags, char *restrict __name);
+extern void argp_help(const struct argp *__restrict __argp,
+		       FILE *__restrict __stream,
+		       unsigned __flags, char *__restrict __name);
 
 /* The following routines are intended to be called from within an argp
    parsing routine(thus taking an argp_state structure as the first
@@ -466,8 +467,8 @@ extern void argp_help(const struct argp *restrict __argp,
 
 /* Output, if appropriate, a usage message for STATE to STREAM.  FLAGS are
    from the set ARGP_HELP_*.  */
-extern void argp_state_help(const struct argp_state *restrict __state,
-			     FILE *restrict __stream,
+extern void argp_state_help(const struct argp_state *__restrict __state,
+			     FILE *__restrict __stream,
 			     unsigned int __flags);
 /* Possibly output the standard usage message for ARGP to stderr and exit.  */
 extern void argp_usage(const struct argp_state *__state);
@@ -475,8 +476,8 @@ extern void argp_usage(const struct argp_state *__state);
 /* If appropriate, print the printf string FMT and following args, preceded
    by the program name and `:', to stderr, and followed by a `Try ... --help'
    message, then exit(1).  */
-extern void argp_error(const struct argp_state *restrict __state,
-			const char *restrict __fmt, ...)
+extern void argp_error(const struct argp_state *__restrict __state,
+			const char *__restrict __fmt, ...)
      __attribute__((__format__(__printf__, 2, 3)));
 /* Similar to the standard gnu error-reporting function error(), but will
    respect the ARGP_NO_EXIT and ARGP_NO_ERRS flags in STATE, and will print
@@ -486,9 +487,9 @@ extern void argp_error(const struct argp_state *restrict __state,
    difference between this function and argp_error is that the latter is for
    *parsing errors*, and the former is for other problems that occur during
    parsing but don't reflect a(syntactic) problem with the input.  */
-extern void argp_failure(const struct argp_state *restrict __state,
+extern void argp_failure(const struct argp_state *__restrict __state,
 			  int __status, int __errnum,
-			  const char *restrict __fmt, ...)
+			  const char *__restrict __fmt, ...)
      __attribute__((__format__(__printf__, 4, 5)));
 
 /* Returns true if the option OPT is a valid short option.  */
