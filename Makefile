@@ -25,6 +25,7 @@ install: $(ALL_LIBS:lib%=$(DESTDIR)$(libdir)/lib%) $(ALL_INCLUDES:%=$(DESTDIR)$(
 clean:
 	rm -f $(ALL_LIBS)
 	rm -f $(OBJS)
+	rm -f *.o *.so
 
 %.o: %.c
 	$(CC) $(BUILDCFLAGS) -c -o $@ $<
