@@ -32,15 +32,19 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <limits.h>
+#ifndef _WIN32
 #include <features.h>
+#include <alloca.h>
+#endif
 #include <libintl.h>
 #include <locale.h>
-#include <alloca.h>
 #include <argp.h>
 #include "argp-fmtstream.h"
+#include "argp-shims.h"
 #include "internal.h"
 #include <stdbool.h>
 #include <stdint.h>
+
 
 /* Return the input field for ARGP in the parser corresponding to STATE; used
    by the help routines.  */

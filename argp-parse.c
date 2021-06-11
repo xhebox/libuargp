@@ -20,13 +20,15 @@
    Modified for uClibc by: Salvatore Cro <salvatore.cro at st.com>
 */
 
+#ifndef _WIN32
 #include <alloca.h>
+#include <features.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
 #include <getopt.h>
-#include <features.h>
 #include <libintl.h>
 #include <locale.h>
 #include <argp.h>

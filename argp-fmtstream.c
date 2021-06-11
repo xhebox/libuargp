@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include "argp-fmtstream.h"
+#include "argp-shims.h"
 
 #define INIT_BUF_SIZE 200
 #define PRINTF_SIZE_GUESS 150

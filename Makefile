@@ -6,11 +6,13 @@ libdir=$(prefix)/lib
 SRC = $(sort $(wildcard *.c))
 OBJS = $(SRC:.c=.o)
 
+SHLIB_EXT=.so
 ALL_INCLUDES=argp.h
-ALL_LIBS=libargp.so libargp.a
+ALL_LIBS=libargp$(SHLIB_EXT) libargp.a
 
 CFLAGS=-O0 -fPIC -Wall
 BUILDCFLAGS=$(CFLAGS) -I.
+LDFLAGS=
 
 AR ?= $(CROSS_COMPILE)ar
 RANLIB  ?= $(CROSS_COMPILE)ranlib
@@ -35,9 +37,9 @@ libargp.a: $(OBJS)
 	$(AR) rc $@ $(OBJS)
 	$(RANLIB) $@
 
-libargp.so: $(OBJS)
+libargp$(SHLIB_EXT): $(OBJS)
 	rm -f $@
-	$(CC) $(LDFLAGS) -shared -o $@ $(OBJS)
+	$(CC) $(LDFLAGS) -shared -o $@ $(OBJS) $(LDFLAGS)
 
 $(DESTDIR)$(libdir)/%: %
 	$(INSTALL) -D -m 755 $< $@
