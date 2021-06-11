@@ -17,7 +17,11 @@
    License along with the GNU C Library; see the file COPYING.LIB.  If
    not, see <http://www.gnu.org/licenses/>.  */
 
+#ifndef _WIN32
 #include <sysexits.h>
+#else
+#define EX_USAGE 64
+#endif
 #include <argp.h>
 
 /* The exit status that argp will use when exiting due to a parsing error.
